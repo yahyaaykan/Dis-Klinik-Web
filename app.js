@@ -126,33 +126,68 @@
 
     initScrollDots(revScroll, document.getElementById('reviewsHint'));
 
-    // AUTO SCROLL
+    // AUTO SCROLL — only activates when section enters viewport
     function initAutoScroll(el, interval = 5000) {
       if (!el) return;
-      let direction = 1;
-      let scrollTimer = setInterval(() => {
-        const maxScroll = el.scrollWidth - el.clientWidth;
-        if (maxScroll <= 0) return;
 
-        if (el.scrollLeft >= maxScroll - 50) {
-          el.scrollTo({ left: 0, behavior: 'smooth' });
-        } else {
-          const scrollAmount = el.offsetWidth * 0.8;
-          el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-        }
-      }, interval);
+      // Always reset to start position
+      el.scrollLeft = 0;
 
-      // Pause interaction
-      const pause = () => clearInterval(scrollTimer);
-      el.addEventListener('touchstart', pause, { passive: true });
-      el.addEventListener('mousedown', pause);
+      let scrollTimer = null;
+      let userInteracted = false;
+
+      function startTimer() {
+        if (scrollTimer) return;
+        scrollTimer = setInterval(() => {
+          if (userInteracted) return;
+          const maxScroll = el.scrollWidth - el.clientWidth;
+          if (maxScroll <= 0) return;
+          if (el.scrollLeft >= maxScroll - 50) {
+            el.scrollTo({ left: 0, behavior: 'smooth' });
+          } else {
+            el.scrollBy({ left: el.offsetWidth * 0.75, behavior: 'smooth' });
+          }
+        }, interval);
+      }
+
+      function stopTimer() {
+        clearInterval(scrollTimer);
+        scrollTimer = null;
+      }
+
+      // Pause on user interaction
+      el.addEventListener('touchstart', () => { userInteracted = true; stopTimer(); }, { passive: true });
+      el.addEventListener('mousedown', () => { userInteracted = true; stopTimer(); });
+
+      // Start/stop based on visibility
+      let hasEntered = false;
+      const sectionObs = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            if (!userInteracted) {
+              // Reset to first card every time section enters view
+              el.scrollLeft = 0;
+              if (!hasEntered) {
+                hasEntered = true;
+                // Wait 3s before starting auto-scroll so user sees first card
+                setTimeout(() => { if (!userInteracted) startTimer(); }, 3000);
+              } else {
+                setTimeout(() => { if (!userInteracted) startTimer(); }, 3000);
+              }
+            }
+          } else {
+            stopTimer();
+          }
+        });
+      }, { threshold: 0.2 });
+
+      sectionObs.observe(el);
     }
 
     initAutoScroll(document.querySelector('.services-grid'));
     initAutoScroll(document.querySelector('.gallery-grid'));
     initAutoScroll(document.getElementById('reviewsScroll'));
     initAutoScroll(document.querySelector('.why-features'));
-    initAutoScroll(document.querySelector('.price-cards'));
 
     // --- ADDED: NEW SCROLL REVEAL LOGIC ---
     document.addEventListener("DOMContentLoaded", () => {
